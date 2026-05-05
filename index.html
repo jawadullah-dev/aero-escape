@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Unity Web Player | Missile Havoc</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+    <link rel="manifest" href="manifest.webmanifest">
+  </head>
+  <body>
+    <div id="unity-container">
+      <canvas id="unity-canvas" width=1920 height=1080 tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+    </div>
+    <script>
+      window.addEventListener("load", function () {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.register("ServiceWorker.js");
+        }
+      });
+
+      var container = document.querySelector("#unity-container");
+      // AeroEscapeConsoleClean
+
+      // AeroEscapeConsoleClean — filter benign Unity/browser noise in production WebGL
+      (function () {
+        var origLog = console.log.bind(console);
+        var origInfo = (console.info && console.info.bind(console)) || origLog;
+        var origWarn = console.warn.bind(console);
+        var origError = console.error.bind(console);
+        function textOf(args) {
+          return Array.prototype.slice.call(args).map(function (a) {
+            if (a == null) return '';
+            if (typeof a === 'string') return a;
+            if (a instanceof Error) return (a.message || '') + ' ' + (a.stack || '');
+            try { return String(a); } catch (e) { return ''; }
+          }).join(' ');
+        }
+        function suppressLog(s) {
+          if (s.indexOf('[UnityMemory]') !== -1) return true;
+          if (s.indexOf('memorysetup-') !== -1) return true;
+          if (s.indexOf('Loading player data from data.unity3d') !== -1) return true;
+          if (s.indexOf('Initialize engine version:') !== -1) return true;
+          if (s.indexOf('Creating WebGL') !== -1) return true;
+          if (s.indexOf('OPENGL LOG:') !== -1) return true;
+          if (s.indexOf('Input Manager initialize') !== -1) return true;
+          if (s.indexOf('UnloadTime:') !== -1) return true;
+          if (s.indexOf('Trying to get length of sound which is not loaded yet') !== -1) return true;
+          if (s.indexOf('Audio context resumed') !== -1) return true;
+          if (s.indexOf('Unloading ') !== -1 && (s.indexOf('Serialized') !== -1 || s.indexOf('unused Assets') !== -1)) return true;
+          if (s.indexOf('FindLiveObjects:') !== -1 && s.indexOf('DeleteObjects:') !== -1) return true;
+          if (s.length > 350 && (s.indexOf('WEBGL_') !== -1 || s.indexOf(' GL_') !== -1 || s.indexOf('EXT_') !== -1)) return true;
+          if (s.indexOf('Renderer:') !== -1 && s.indexOf('WebGL') !== -1) return true;
+          if (s.indexOf('Vendor:') !== -1 && s.indexOf('WebKit') !== -1) return true;
+          if (s.indexOf('Version:') !== -1 && s.indexOf('OpenGL ES') !== -1) return true;
+          if (/^GLES:\s*\d/m.test(s)) return true;
+          return false;
+        }
+        function suppressWarn(s) {
+          if (s.indexOf('The AudioContext was not allowed to start') !== -1) return true;
+          if (s.indexOf('INVALID_ENUM: getInternalformatParameter') !== -1) return true;
+          if (s.indexOf('Manual synchronization of Unity Application.persistentDataPath') !== -1) return true;
+          if (s.indexOf('Trying to get length of sound which is not loaded yet') !== -1) return true;
+          return false;
+        }
+        console.log = function () {
+          var t = textOf(arguments);
+          if (suppressLog(t)) return;
+          origLog.apply(console, arguments);
+        };
+        console.info = function () {
+          var t = textOf(arguments);
+          if (suppressLog(t)) return;
+          origInfo.apply(console, arguments);
+        };
+        console.warn = function () {
+          var t = textOf(arguments);
+          if (suppressWarn(t) || suppressLog(t)) return;
+          origWarn.apply(console, arguments);
+        };
+        console.error = function () {
+          var t = textOf(arguments);
+          if (suppressLog(t)) return;
+          origError.apply(console, arguments);
+        };
+      })();
+
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var warningBanner = document.querySelector("#unity-warning");
+
+      // Shows a temporary message banner/ribbon for a few seconds, or
+      // a permanent error message on top of the canvas if type=='error'.
+      // If type=='warning', a yellow highlight color is used.
+      // Modify or remove this function to customize the visually presented
+      // way that non-critical warnings and error messages are presented to the
+      // user.
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/WebGL.loader.js";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/WebGL.data",
+        frameworkUrl: buildUrl + "/WebGL.framework.js",
+        codeUrl: buildUrl + "/WebGL.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "Pickus Games",
+        productName: "Missile Havoc",
+        productVersion: "1.1",
+        showBanner: unityShowBanner,
+        autoSyncPersistentDataPath: true,
+      };
+
+      // By default Unity keeps WebGL canvas render target size matched with
+      // the DOM size of the canvas element (scaled by window.devicePixelRatio)
+      // Set this to false if you want to decouple this synchronization from
+      // happening inside the engine, and you would instead like to size up
+      // the canvas DOM size and WebGL render target sizes yourself.
+      // config.matchWebGLToCanvasSize = false;
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        // Mobile device style: fill the whole browser client area with the game canvas:
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+      }
+
+
+      loadingBar.style.display = "block";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).then((unityInstance) => {
+          loadingBar.style.display = "none";
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+    </script>
+  </body>
+</html>

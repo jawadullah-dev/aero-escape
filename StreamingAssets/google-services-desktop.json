@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "494369111056",
+    "project_id": "missile-havoc-gp",
+    "storage_bucket": "missile-havoc-gp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:494369111056:android:f74332ced854a7e6175e95",
+        "android_client_info": {
+          "package_name": "com.PickusGames.MissileHavoc"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4jfupwswkj0xn6rcgAi5G1lGl692QtvQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
